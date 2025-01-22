@@ -1,0 +1,157 @@
+---
+title: "Real estate analysis"
+author: "Hatim Hussaini"
+date: "2024-11-22"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Exploring Real Estate Data
+
+### Understanding Relationships Between Variables
+
+```{r load_dataset, include=FALSE}
+real_estate <- read.csv("/Users/hatimhussaini/Downloads/Assignment datasets-20241012/realestate2024.csv")
+```
+
+```{r correlation_plot, echo=TRUE}
+pairs(real_estate, main = "Scatter Plot Matrix of Real Estate Data", panel = panel.smooth)
+```
+
+***Insights:***
+
+- Price vs. size has the strongest positive correlation, as bigger properties tend to be more expensive.
+- Slight positive correlations exist between price and both bedrooms and age, suggesting newer homes or homes with more bedrooms are valued higher.
+
+```{r corr_matrix}
+cor(real_estate)
+```
+
+***Insights:***
+
+- Strong correlation between price and size (0.7799), indicating size is a key factor influencing price.
+- Correlations with other predictors, like bedrooms and age, are minimal.
+
+### Building a Full Regression Model to Predict Property Price
+
+#### Estimating the Impact of Property Size on Price
+
+```{r fit-full-model, echo=TRUE}
+model <- lm(price ~ size + bedrooms + age, data = real_estate)
+summary(model)
+summary_model <- summary(model)
+```
+
+$$
+\hat{\beta}_{size} \pm t_{n - p, 1-\alpha/2} \cdot s.e.(\hat{\beta}_{size})
+$$
+
+$$
+=\hat{\beta}_{size} \pm t_{193, 0.975} \cdot s.e.(\hat{\beta}_{size})
+$$
+$$
+= 4.9371 \pm 1.97 \times 0.2819
+$$
+$$
+=(4.38,5.49)
+$$
+We are 95% confident that for every unit increase in size, the price of the property will increase by between 4.38 and 5.49 thousand dollars on average.
+
+### Testing the Overall Significance of the Model
+
+#### Conducting an F-Test
+
+**Theoretical Model:**
+
+$$
+Y_i = \beta_0 + \beta_1 X_1 + \beta_2 X_2 + \beta_3 X_3 + \epsilon_i, \quad i = 1, 2, \dots, n
+$$
+
+- $Y_i$ is the response variable (price).
+- $\beta_0$ is the intercept.
+- $\beta_1, \beta_2, \beta_3$ are coefficients for the predictors $X_1$ (size), $X_2$ (bedrooms), and $X_3$ (age).
+- $\epsilon_i \sim N(0,\sigma^2)$ represents random variation.
+
+**Null Hypothesis:** $H_0: \beta_1 = \beta_2 = \beta_3 = 0$ (no relationship between predictors and price).
+
+```{r ANOVA}
+anova(model)
+```
+
+- Regression SS = 50287541.
+- Regression MS = 16762514.
+- F-statistic: 105.43323.
+- p-value: 1.9e-40 < 0.05.
+
+***Conclusion:***
+- There is significant evidence to reject $H_0$.
+- At least one predictor (size, bedrooms, age) significantly impacts price.
+
+### Validating the Regression Model
+
+```{r Validation}
+par(mfrow=c(1,2))  
+plot(model, which=1:2)
+
+plot(resid(model) ~ real_estate$size, xlab = 'Size', ylab = 'Residuals')
+abline(h=0, col="red")
+plot(resid(model) ~ real_estate$bedrooms, xlab = 'Bedroom', ylab = 'Residuals')
+abline(h=0, col="red")
+plot(resid(model) ~real_estate$age, xlab = 'Age', ylab = 'Residuals')
+abline(h=0, col="red")
+```
+
+***Insights:***
+
+- Residual vs. fitted plots show mostly random scatter with some imbalance in homoscedasticity.
+- Q-Q plot shows deviations from normality.
+- Residuals vs. predictors indicate linearity.
+
+Overall, the model meets assumptions for linear regression with minor deviations.
+
+### Evaluating Model Fit (R²)
+
+$$
+R^2 = 1 - \frac{SS_{Res}}{SS_{Total}} = 1 - \frac{30684511}{50287541} = 0.39
+$$
+
+An $R^2$ of 0.39 suggests the model explains 39% of the variability in property prices, indicating potential missing predictors like location.
+
+### Refining the Model with Feature Selection
+
+```{r best regression model 1}
+summary_model <- summary(model)
+summary_model
+```
+
+Removing the least significant predictor (age):
+
+```{r best regression model 2}
+model2 <- update(model, . ~ . - age)
+summary_m2 <- summary(model2)
+summary_m2
+```
+
+**Final Model Equation:**
+
+$$
+\hat{Y} = 459.8715 + 53.7265 \text{Bedrooms} + 4.9318 \text{Size}
+$$
+
+### Comparing $R^2$ and Adjusted $R^2$
+
+```{r r^2 comparision}
+print(summary_model$r.squared)
+print(summary_m2$r.squared)
+```
+
+```{r adj r^2 comparison}
+print(summary_model$adj.r.squared)
+print(summary_m2$adj.r.squared)
+```
+
+- $R^2$ decreases slightly, showing reduced overall accuracy.
+- Adjusted $R^2$ increases, indicating the model is now more efficient.
